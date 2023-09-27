@@ -1,0 +1,93 @@
+name: Notify Prod Deployment
+on:
+  push:
+    branches:
+      - master
+      
+jobs:
+  notify-prod-deploy:
+    runs-on: ubuntu-latest
+    env:
+        NOTIFICATION_SMTP_USER: ${{secrets.SMTP_USER}}
+        NOTIFICATION_SMTP_PASSWORD: ${{secrets.SMTP_PASSWORD}}
+        NOTIFICATION_FROM: ALVDIGITAL Systems
+        NOTIFICATION_SUBJECT: Prod Deployment Notification
+        NOTIFICATION_IMAGES_PATH: alv/blob/master/.github/workflows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      
+      - name: Get Author
+        id: extract_author
+        run: |
+          author_name=$(git log -n 1 --pretty=format:%an)
+          author_email=$(git log -n 1 --pretty=format:%ae)
+          echo "name=$author_name" >> $GITHUB_OUTPUT
+          echo "email=$author_email" >> $GITHUB_OUTPUT
+
+      - name: Get Branch
+        id: extract_branch
+        run: |
+          echo "name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+
+      - name: Get Image Path
+        id: extract_image_path
+        run: |
+          image_path="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY_OWNER/$NOTIFICATION_IMAGES_PATH"
+          echo "path=$image_path" >> $GITHUB_OUTPUT
+
+      - name: Send Notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          # Server port, default 25:
+          server_port: 465
+          # Optional whether this connection uses TLS (default is true if server_port is 465)
+          secure: true
+          # Optional (recommended) mail server username:
+          username: ${{env.NOTIFICATION_SMTP_USER}}
+          # Optional (recommended) mail server password:
+          password: ${{env.NOTIFICATION_SMTP_PASSWORD}}
+          # Required mail subject:
+          subject: ${{ env.NOTIFICATION_SUBJECT }}
+          # Required recipient's addresses:
+          to: ${{ steps.extract_author.outputs.email }} 
+          # Optional blind carbon copy recipients:
+          # Required sender full name (address can be skipped):
+          from: ${{ env.NOTIFICATION_FROM }}
+          # Optional plain body:
+          html_body: |
+            Hi <b>${{ steps.extract_author.outputs.name }}</b>, <br>
+            You committed to ${{ steps.extract_branch.outputs.name }}. <br>
+            Do not forget to:
+            <ul>
+              <li> Inform your colleagues in the Skype "<b>New on Live</b>" group </li> 
+              <li> Create a Help Center ticket in <b><i>Jira</i></b> (usually required) </li> 
+              <li> Create a GI ticket in <b><i>Jira</i></b> (usually required) </li>
+            </ul>
+            To create tickets in <b><i>Jira</i></b>, from within the <b>ALVCODE</b> project, please use the Automation Action on the right             
+            "<u><b>Create Help Center</b></u> / <u><b>GI tickets</b></u>" as shown below:
+            <div>
+              <img src="${{ steps.extract_image_path.outputs.path }}/create-tickets.png?raw=true" alt="Create Tickets" width="600px" height="600px">
+            </div>
+            Please do this now!            
+
+          # Optional priority: 'high', 'normal' (default), or 'low'
+          priority: high
+          # Optional HTML body read from file:
+          #html_body: file://README.html
+          # Optional carbon copy recipients:
+          #cc: service@alvdigital.com,kumvijaya@gmail.com
+          # Optional recipient of the email response:
+          #reply_to: service@alvdigital.com,kumvijaya@gmail.com
+          # Optional Message ID this message is replying to:
+          #in_reply_to: service@alvdigital.com,kumvijaya@gmail.com
+          # Optional unsigned/invalid certificates allowance:
+          #ignore_cert: true
+          # Optional converting Markdown to HTML (set content_type to text/html too):
+          # convert_markdown: true
+          # Optional attachments:
+          #attachments: attachments.zip,git.diff,./dist/static/*.js
